@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic-Tac-Toe AI</title>
+    <style>
+        :root {
+            --bg-color: #f8fafc;
+            --board-bg: #94a3b8;
+            --cell-bg: #ffffff;
+            --x-color: #2563eb;
+            --o-color: #dc2626;
+            --win-bg: #bbf7d0;
+            --btn-bg: #2563eb;
+            --btn-hover: #1d4ed8;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            background: var(--bg-color);
+            margin: 0;
+            color: #334155;
+        }
+
+        h1 { margin-bottom: 10px; font-size: 2rem; }
+        
+        #status { 
+            font-size: 1.25rem; 
+            margin-bottom: 20px; 
+            height: 1.5rem; 
+            font-weight: 600; 
+        }
+
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 8px;
+            background: var(--board-bg);
+            padding: 8px;
+            border-radius: 12px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+
+        .cell {
+            background: var(--cell-bg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3.5rem;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 8px;
+            transition: background 0.2s, transform 0.1s;
+            user-select: none;
+        }
+
+        .cell:hover:not(.x):not(.o) { 
+            background: #f1f5f9; 
+            transform: scale(0.98);
+        }
+
+        .cell.x { color: var(--x-color); cursor: not-allowed; }
+        .cell.o { color: var(--o-color); cursor: not-allowed; }
+        .cell.win { background: var(--win-bg); }
+
+        button {
+            margin-top: 25px;
+            padding: 10px 24px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            background: var(--btn-bg);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            transition: background 0.2s;
+        }
+
+        button:hover { background: var(--btn-hover); }
+    </style>
+</head>
+<body>
+
+    <h1>Tic-Tac-Toe</h1>
+    <div id="status">Your turn (X)</div>
+    
+    <div class="board" id="board">
+        <div class="cell" data-index="0"></div>
+        <div class="cell" data-index="1"></div>
+        <div class="cell" data-index="2"></div>
+        <div class="cell" data-index="3"></div>
+        <div class="cell" data-index="4"></div>
+        <div class="cell" data-index="5"></div>
+        <div class="cell" data-index="6"></div>
+        <div class="cell" data-index="7"></div>
+        <div class="cell" data-index="8"></div>
+    </div>
+    
+    <button id="reset">Reset Game</button>
+
+    <script>
+        // --- Game State ---
+        let board = ['', '', '', '', '', '', '', '', ''];
+        let gameActive = true;
+        let computerTimeout;
+        
+        const humanPlayer = 'X';
+        const computerPlayer = 'O';
+        
+        // All 8 possible ways to win
+        const winConditions = [
+            [0, 1, 2], [3, 4, 5], [6, 7, 8], // Rows
+            [0, 3, 6], [1, 4, 7], [2, 5, 8], // Columns
+            [0, 4, 8], [2, 4, 6]             // Diagonals
+        ];
+
+        // --- UI Elements ---
+        const statusEl = document.getElementById('status');
+        const cells = document.querySelectorAll('.cell');
+        const resetBtn = document.getElementById('reset');
+
+        // --- Event Listeners ---
+        cells.forEach(cell => cell.addEventListener('click', handleCellClick));
+        resetBtn.addEventListener('click', resetGame);
+
+        // --- Game Logic ---
+        function handleCellClick(event) {
+            const cell = event.target;
+            const index = cell.getAttribute('data-index');
+
+            if (board[index] === '' && gameActive) {
+                // Player moves
+                board[index] = humanPlayer;
+                cell.textContent = humanPlayer;
+                cell.classList.add('x');
+                
+                if (checkGameResult(humanPlayer)) return;
+                
+                // Computer's turn
+                gameActive = false;
+                statusEl.textContent = "Computer is thinking...";
+                computerTimeout = setTimeout(computerMove, 500); // 0.5s delay for realism
+            }
+        }
+
+        function computerMove() {
+            let move = getBasicMove(board, computerPlayer, humanPlayer);
+            
+            if (move !== null && move !== undefined) {
+                board[move] = computerPlayer;
+                const cell = document.querySelector(`[data-index="${move}"]`);
+                cell.textContent = computerPlayer;
+                cell.classList.add('o');
+                
+                if (checkGameResult(computerPlayer)) return;
+                
+                gameActive = true;
+                statusEl.textContent = "Your turn (X)";
+            }
+        }
+
+        // --- The Core Rule (Win -> Block -> Random) ---
+        function getBasicMove(currentBoard, player, opponent) {
+            let emptySquares = [];
+            for (let i = 0; i < 9; i++) {
+                if (currentBoard[i] === '') emptySquares.push(i);
+            }
+            
+            if (emptySquares.length === 0) return null;
+
+            // 1. WIN IF POSSIBLE
+            for (let i of emptySquares) {
+                currentBoard[i] = player;       // Simulate move
+                if (checkWin(currentBoard, player)) {
+                    currentBoard[i] = '';       // Undo simulation
+                    return i;                   // Take the win
+                }
+                currentBoard[i] = '';           // Undo simulation
+            }
+
+            // 2. BLOCK IF NEEDED
+            for (let i of emptySquares) {
+                currentBoard[i] = opponent;     // Simulate opponent move
+                if (checkWin(currentBoard, opponent)) {
+                    currentBoard[i] = '';       // Undo simulation
+                    return i;                   // Block the threat
+                }
+                currentBoard[i] = '';           // Undo simulation
+            }
+
+            // 3. ELSE RANDOM
+            return emptySquares[Math.floor(Math.random() * emptySquares.length)];
+        }
+
+        function checkWin(currentBoard, player) {
+            return winConditions.some(combo => {
+                return combo.every(index => currentBoard[index] === player);
+            });
+        }
+
+        function checkGameResult(player) {
+            if (checkWin(board, player)) {
+                gameActive = false;
+                let winnerText = player === humanPlayer ? "You win! 🎉" : "Computer wins! 🤖";
+                statusEl.textContent = winnerText;
+                highlightWinningCells(player);
+                return true;
+            }
+            if (!board.includes('')) {
+                gameActive = false;
+                statusEl.textContent = "It's a draw! 🤝";
+                return true;
+            }
+            return false;
+        }
+
+        function highlightWinningCells(player) {
+            for (let combo of winConditions) {
+                if (combo.every(index => board[index] === player)) {
+                    combo.forEach(index => {
+                        document.querySelector(`[data-index="${index}"]`).classList.add('win');
+                    });
+                    break;
+                }
+            }
+        }
+
+        function resetGame() {
+            clearTimeout(computerTimeout); // Cancel any pending computer moves
+            board = ['', '', '', '', '', '', '', '', ''];
+            gameActive = true;
+            statusEl.textContent = "Your turn (X)";
+            
+            cells.forEach(cell => {
+                cell.textContent = '';
+                cell.classList.remove('x', 'o', 'win');
+            });
+        }
+    </script>
+</body>
+</html>
